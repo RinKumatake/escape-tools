@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>脱出ゲーム パスコード生成ツール</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 420px;
+      margin: 40px auto;
+      padding: 20px;
+      background-color: #f7f9fa;
+      color: #333;
+    }
+    .card {
+      background: #fff;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    h2 { margin-top: 0; font-size: 1.2rem; }
+    label { display: block; margin: 12px 0 6px; font-weight: bold; font-size: 0.9rem; }
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-sizing: border-box;
+      font-size: 1rem;
+    }
+    button {
+      background-color: #0066cc;
+      color: white;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover { background-color: #0052a3; }
+    .result-box {
+      margin-top: 16px;
+      padding: 16px;
+      background-color: #f0f4f8;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .code-display {
+      font-size: 1.8rem;
+      font-weight: bold;
+      letter-spacing: 4px;
+      color: #222;
+      margin-bottom: 10px;
+    }
+    .copy-btn {
+      background-color: #28a745;
+      font-size: 0.9rem;
+      padding: 8px;
+    }
+    .copy-btn:hover { background-color: #218838; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>🔑 パスコード生成ツール</h2>
+  
+  <label for="type">生成タイプ</label>
+  <select id="type">
+    <option value="binary">0と1のみ（スイッチ・ランプ用）</option>
+    <option value="digits">0〜9の数字（ダイヤル・金庫用）</option>
+  </select>
+
+  <label for="length">桁数</label>
+  <input type="number" id="length" value="4" min="2" max="10">
+
+  <button onclick="generate()">生成する</button>
+
+  <div class="result-box">
+    <div class="code-display" id="result">----</div>
+    <button class="copy-btn" onclick="copyCode()">クリップボードにコピー</button>
+  </div>
+</div>
+
+<script>
+  function generate() {
+    const type = document.getElementById("type").value;
+    const length = parseInt(document.getElementById("length").value, 10);
+    const resultEl = document.getElementById("result");
+
+    if (isNaN(length) || length < 2) {
+      alert("桁数は2桁以上にしてください！");
+      return;
+    }
+
+    let code = "";
+
+    if (type === "binary") {
+      // 全部0、全部1を避けるループ
+      while (true) {
+        code = "";
+        for (let i = 0; i < length; i++) {
+          code += Math.floor(Math.random() * 2);
+        }
+        if (code.includes('0') && code.includes('1')) break;
+      }
+    } else {
+      // 0〜9のランダム数字
+      for (let i = 0; i < length; i++) {
+        code += Math.floor(Math.random() * 10);
+      }
+    }
+
+    resultEl.textContent = code;
+  }
+
+  function copyCode() {
+    const code = document.getElementById("result").textContent;
+    if (code === "----") return;
+    navigator.clipboard.writeText(code).then(() => {
+      alert("コピーしました: " + code);
+    });
+  }
+</script>
+
+</body>
+</html>
