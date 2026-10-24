@@ -31,9 +31,35 @@
       box-sizing: border-box;
       font-size: 1rem;
     }
+    .range-inputs {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .range-inputs input {
+      margin-bottom: 0;
+    }
+    .range-inputs span {
+      font-weight: bold;
+      color: #666;
+    }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      font-weight: normal;
+      cursor: pointer;
+      margin: 6px 0 12px;
+    }
+    .checkbox-label input {
+      width: auto;
+      margin: 0 8px 0 0;
+      cursor: pointer;
+    }
     .btn-row {
       display: flex;
       gap: 10px;
+      margin-top: 8px;
       margin-bottom: 12px;
     }
     .btn-row button {
@@ -81,6 +107,9 @@
       cursor: pointer;
     }
     .copy-btn:hover { background-color: #218838; }
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -89,10 +118,25 @@
   <h2>🔑 パスコード生成ツール</h2>
   
   <label for="type">生成タイプ</label>
-  <select id="type">
+  <select id="type" onchange="toggleRangeArea()">
     <option value="binary">0と1のみ（スイッチ・ランプ用）</option>
-    <option value="digits">0〜9の数字（ダイヤル・金庫用）</option>
+    <option value="digits">指定範囲の数字（ダイヤル・金庫用）</option>
   </select>
+
+  <!-- 数字選択時のみ表示されるオプション -->
+  <div id="range-area" class="hidden">
+    <label>使用する数字の範囲</label>
+    <div class="range-inputs">
+      <input type="number" id="min-val" value="1" min="0" max="9">
+      <span>〜</span>
+      <input type="number" id="max-val" value="6" min="0" max="9">
+    </div>
+
+    <label class="checkbox-label">
+      <input type="checkbox" id="unique-check">
+      同じ数字を重複させない（全て違う数字にする）
+    </label>
+  </div>
 
   <label for="length">桁数</label>
   <input type="number" id="length" value="4" min="2" max="10">
@@ -109,6 +153,16 @@
 </div>
 
 <script>
+  function toggleRangeArea() {
+    const type = document.getElementById("type").value;
+    const rangeArea = document.getElementById("range-area");
+    if (type === "digits") {
+      rangeArea.classList.remove("hidden");
+    } else {
+      rangeArea.classList.add("hidden");
+    }
+  }
+
   function generate() {
     const type = document.getElementById("type").value;
     const length = parseInt(document.getElementById("length").value, 10);
@@ -122,7 +176,7 @@
     let code = "";
 
     if (type === "binary") {
-      // 全部0、全部1を避けるループ
+      // 0と1の生成（全0・全1を除外）
       while (true) {
         code = "";
         for (let i = 0; i < length; i++) {
@@ -131,9 +185,44 @@
         if (code.includes('0') && code.includes('1')) break;
       }
     } else {
-      // 0〜9のランダム数字
-      for (let i = 0; i < length; i++) {
-        code += Math.floor(Math.random() * 10);
+      let min = parseInt(document.getElementById("min-val").value, 10);
+      let max = parseInt(document.getElementById("max-val").value, 10);
+      const isUnique = document.getElementById("unique-check").checked;
+
+      if (isNaN(min) || isNaN(max)) {
+        alert("範囲の数値を正しく入力してください！");
+        return;
+      }
+      if (min > max) {
+        alert("最小値は最大値以下にしてください！");
+        return;
+      }
+
+      // 範囲内の数字リストを作成
+      const availableNumbers = [];
+      for (let i = min; i <= max; i++) {
+        availableNumbers.push(i);
+      }
+
+      // 重複なしの場合の桁数チェック
+      if (isUnique) {
+        if (length > availableNumbers.length) {
+          alert(`範囲内（${min}〜${max}）の数字が足りません！桁数を${availableNumbers.length}以下にするか、範囲を広げてください。`);
+          return;
+        }
+
+        // シャッフルして先頭から必要な桁数を取り出す（Fisher-Yatesシャッフル）
+        for (let i = availableNumbers.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [availableNumbers[i], availableNumbers[j]] = [availableNumbers[j], availableNumbers[i]];
+        }
+        code = availableNumbers.slice(0, length).join("");
+      } else {
+        // 重複ありの通常生成
+        for (let i = 0; i < length; i++) {
+          const num = Math.floor(Math.random() * (max - min + 1)) + min;
+          code += num.toString();
+        }
       }
     }
 
@@ -142,8 +231,12 @@
 
   function resetForm() {
     document.getElementById("type").value = "binary";
+    document.getElementById("min-val").value = "1";
+    document.getElementById("max-val").value = "6";
+    document.getElementById("unique-check").checked = false;
     document.getElementById("length").value = "4";
     document.getElementById("result").textContent = "----";
+    toggleRangeArea();
   }
 
   function copyCode() {
