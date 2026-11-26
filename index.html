@@ -121,18 +121,29 @@
   <label for="type">生成タイプ</label>
   <select id="type" onchange="toggleOptions()">
     <option value="binary">0と1のみ（スイッチ・ランプ用）</option>
-    <option value="digits">指定範囲の数字（ダイヤル・金庫用）</option>
+    <option value="digits">各桁の数字を指定（ダイヤル・金庫用）</option>
+    <option value="number_range">数値の範囲指定（0〜99999など1つの数）</option>
     <option value="hiragana">ひらがな（あ〜ん）</option>
     <option value="alphabet">アルファベット（A〜Z）</option>
   </select>
 
-  <!-- 数字選択時のみ表示される範囲指定 -->
+  <!-- 各桁の数字選択時のみ表示される範囲指定（0〜9） -->
   <div id="range-area" class="hidden">
-    <label>使用する数字の範囲</label>
+    <label>各桁に使用する数字の範囲</label>
     <div class="range-inputs">
       <input type="number" id="min-val" value="1" min="0" max="9">
       <span>〜</span>
       <input type="number" id="max-val" value="6" min="0" max="9">
+    </div>
+  </div>
+
+  <!-- 数値の範囲指定（0〜99999など）選択時のみ表示 -->
+  <div id="num-range-area" class="hidden">
+    <label>数値の範囲（最小値 〜 最大値）</label>
+    <div class="range-inputs">
+      <input type="number" id="num-min" value="0" min="0">
+      <span>〜</span>
+      <input type="number" id="num-max" value="99999" min="0">
     </div>
   </div>
 
@@ -144,8 +155,11 @@
     </label>
   </div>
 
-  <label for="length">桁数（文字数）</label>
-  <input type="number" id="length" value="4" min="1" max="20">
+  <!-- 数値の範囲指定以外の時に表示される桁数入力 -->
+  <div id="length-area">
+    <label for="length">桁数（文字数）</label>
+    <input type="number" id="length" value="4" min="1" max="20">
+  </div>
 
   <label class="checkbox-label">
     <input type="checkbox" id="space-check">
@@ -170,90 +184,106 @@
   function toggleOptions() {
     const type = document.getElementById("type").value;
     const rangeArea = document.getElementById("range-area");
+    const numRangeArea = document.getElementById("num-range-area");
     const uniqueArea = document.getElementById("unique-area");
+    const lengthArea = document.getElementById("length-area");
 
-    // 範囲指定は「数字」の時だけ表示
-    if (type === "digits") {
-      rangeArea.classList.remove("hidden");
-    } else {
-      rangeArea.classList.add("hidden");
-    }
+    // 各桁の範囲指定は「digits」の時だけ表示
+    rangeArea.classList.toggle("hidden", type !== "digits");
 
-    // 重複なしは「バイナリ以外」の時に表示
-    if (type !== "binary") {
-      uniqueArea.classList.remove("hidden");
-    } else {
-      uniqueArea.classList.add("hidden");
-    }
+    // 数値の範囲指定は「number_range」の時だけ表示
+    numRangeArea.classList.toggle("hidden", type !== "number_range");
+
+    // 重複なしは「digits / hiragana / alphabet」の時だけ表示
+    uniqueArea.classList.toggle("hidden", type === "binary" || type === "number_range");
+
+    // 桁数入力は「number_range」以外の時に表示
+    lengthArea.classList.toggle("hidden", type === "number_range");
   }
 
   function generate() {
     const type = document.getElementById("type").value;
-    const length = parseInt(document.getElementById("length").value, 10);
     const useSpace = document.getElementById("space-check").checked;
-    const isUnique = document.getElementById("unique-check").checked;
     const resultEl = document.getElementById("result");
-
-    if (isNaN(length) || length < 1) {
-      alert("桁数は1以上にしてください！");
-      return;
-    }
 
     let code = "";
 
-    if (type === "binary") {
-      if (length === 1) {
-        code = Math.floor(Math.random() * 2).toString();
-      } else {
-        while (true) {
-          code = "";
-          for (let i = 0; i < length; i++) {
-            code += Math.floor(Math.random() * 2);
-          }
-          if (code.includes('0') && code.includes('1')) break;
-        }
+    if (type === "number_range") {
+      const min = parseInt(document.getElementById("num-min").value, 10);
+      const max = parseInt(document.getElementById("num-max").value, 10);
+
+      if (isNaN(min) || isNaN(max)) {
+        alert("最小値と最大値を正しく入力してください！");
+        return;
       }
+      if (min > max) {
+        alert("最小値は最大値以下にしてください！");
+        return;
+      }
+
+      const num = Math.floor(Math.random() * (max - min + 1)) + min;
+      code = num.toString();
+
     } else {
-      // 候補となる文字・数字の配列を準備する
-      let pool = [];
+      const length = parseInt(document.getElementById("length").value, 10);
+      const isUnique = document.getElementById("unique-check").checked;
 
-      if (type === "digits") {
-        let min = parseInt(document.getElementById("min-val").value, 10);
-        let max = parseInt(document.getElementById("max-val").value, 10);
-
-        if (isNaN(min) || isNaN(max)) {
-          alert("範囲の数値を正しく入力してください！");
-          return;
-        }
-        if (min > max) {
-          alert("最小値は最大値以下にしてください！");
-          return;
-        }
-        for (let i = min; i <= max; i++) {
-          pool.push(i.toString());
-        }
-      } else if (type === "hiragana") {
-        pool = [...HIRAGANA_CHARS];
-      } else if (type === "alphabet") {
-        pool = [...ALPHABET_CHARS];
+      if (isNaN(length) || length < 1) {
+        alert("桁数は1以上にしてください！");
+        return;
       }
 
-      // 重複なしの場合の文字数チェックとシャッフル生成
-      if (isUnique) {
-        if (length > pool.length) {
-          alert(`候補の文字数（${pool.length}種類）を超えています！桁数を${pool.length}以下にしてください。`);
-          return;
+      if (type === "binary") {
+        if (length === 1) {
+          code = Math.floor(Math.random() * 2).toString();
+        } else {
+          while (true) {
+            code = "";
+            for (let i = 0; i < length; i++) {
+              code += Math.floor(Math.random() * 2);
+            }
+            if (code.includes('0') && code.includes('1')) break;
+          }
         }
-        for (let i = pool.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [pool[i], pool[j]] = [pool[j], pool[i]];
-        }
-        code = pool.slice(0, length).join("");
       } else {
-        // 重複ありの通常生成
-        for (let i = 0; i < length; i++) {
-          const idx = Math.floor(Math.random() * pool.length);
-          code += pool[idx];
+        let pool = [];
+
+        if (type === "digits") {
+          let min = parseInt(document.getElementById("min-val").value, 10);
+          let max = parseInt(document.getElementById("max-val").value, 10);
+
+          if (isNaN(min) || isNaN(max)) {
+            alert("範囲の数値を正しく入力してください！");
+            return;
+          }
+          if (min > max) {
+            alert("最小値は最大値以下にしてください！");
+            return;
+          }
+          for (let i = min; i <= max; i++) {
+            pool.push(i.toString());
+          }
+        } else if (type === "hiragana") {
+          pool = [...HIRAGANA_CHARS];
+        } else if (type === "alphabet") {
+          pool = [...ALPHABET_CHARS];
+        }
+
+        if (isUnique) {
+          if (length > pool.length) {
+            alert(`候補の文字数（${pool.length}種類）を超えています！桁数を${pool.length}以下にしてください。`);
+            return;
+          }
+          for (let i = pool.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [pool[i], pool[j]] = [pool[j], pool[i]];
+          }
+          code = pool.slice(0, length).join("");
+        } else {
+          for (let i = 0; i < length; i++) {
+            const idx = Math.floor(Math.random() * pool.length);
+            code += pool[idx];
+          }
         }
       }
     }
@@ -269,6 +299,8 @@
     document.getElementById("type").value = "binary";
     document.getElementById("min-val").value = "1";
     document.getElementById("max-val").value = "6";
+    document.getElementById("num-min").value = "0";
+    document.getElementById("num-max").value = "99999";
     document.getElementById("unique-check").checked = false;
     document.getElementById("space-check").checked = false;
     document.getElementById("length").value = "4";
