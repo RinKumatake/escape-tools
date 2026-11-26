@@ -91,9 +91,9 @@
       text-align: center;
     }
     .code-display {
-      font-size: 1.8rem;
+      font-size: 1.6rem;
       font-weight: bold;
-      letter-spacing: 3px;
+      letter-spacing: 2px;
       color: #222;
       margin-bottom: 10px;
       word-break: break-all;
@@ -122,7 +122,7 @@
   <select id="type" onchange="toggleOptions()">
     <option value="binary">0と1のみ（スイッチ・ランプ用）</option>
     <option value="digits">各桁の数字を指定（ダイヤル・金庫用）</option>
-    <option value="number_range">数値の範囲指定（0〜99999など1つの数）</option>
+    <option value="number_range">数値の範囲指定（0〜99999など）</option>
     <option value="hiragana">ひらがな（あ〜ん）</option>
     <option value="alphabet">アルファベット（A〜Z）</option>
   </select>
@@ -147,19 +147,16 @@
     </div>
   </div>
 
-  <!-- 数字・ひらがな・アルファベット選択時に表示される重複なし設定 -->
+  <!-- バイナリ以外の時に表示される重複なし設定 -->
   <div id="unique-area" class="hidden">
     <label class="checkbox-label">
       <input type="checkbox" id="unique-check">
-      重複させない（全て違う文字・数字にする）
+      重複させない（全て違う値・文字にする）
     </label>
   </div>
 
-  <!-- 数値の範囲指定以外の時に表示される桁数入力 -->
-  <div id="length-area">
-    <label for="length">桁数（文字数）</label>
-    <input type="number" id="length" value="4" min="1" max="20">
-  </div>
+  <label for="length" id="length-label">桁数（文字数）</label>
+  <input type="number" id="length" value="4" min="1" max="50">
 
   <label class="checkbox-label">
     <input type="checkbox" id="space-check">
@@ -186,27 +183,33 @@
     const rangeArea = document.getElementById("range-area");
     const numRangeArea = document.getElementById("num-range-area");
     const uniqueArea = document.getElementById("unique-area");
-    const lengthArea = document.getElementById("length-area");
+    const lengthLabel = document.getElementById("length-label");
 
-    // 各桁の範囲指定は「digits」の時だけ表示
     rangeArea.classList.toggle("hidden", type !== "digits");
-
-    // 数値の範囲指定は「number_range」の時だけ表示
     numRangeArea.classList.toggle("hidden", type !== "number_range");
+    uniqueArea.classList.toggle("hidden", type === "binary");
 
-    // 重複なしは「digits / hiragana / alphabet」の時だけ表示
-    uniqueArea.classList.toggle("hidden", type === "binary" || type === "number_range");
-
-    // 桁数入力は「number_range」以外の時に表示
-    lengthArea.classList.toggle("hidden", type === "number_range");
+    // 数値範囲指定の時だけラベルを「生成する個数」に変える
+    if (type === "number_range") {
+      lengthLabel.textContent = "生成する個数";
+    } else {
+      lengthLabel.textContent = "桁数（文字数）";
+    }
   }
 
   function generate() {
     const type = document.getElementById("type").value;
+    const count = parseInt(document.getElementById("length").value, 10);
     const useSpace = document.getElementById("space-check").checked;
+    const isUnique = document.getElementById("unique-check").checked;
     const resultEl = document.getElementById("result");
 
-    let code = "";
+    if (isNaN(count) || count < 1) {
+      alert("1以上の数値を入力してください！");
+      return;
+    }
+
+    let resultText = "";
 
     if (type === "number_range") {
       const min = parseInt(document.getElementById("num-min").value, 10);
@@ -221,25 +224,42 @@
         return;
       }
 
-      const num = Math.floor(Math.random() * (max - min + 1)) + min;
-      code = num.toString();
+      const rangeSize = max - min + 1;
 
-    } else {
-      const length = parseInt(document.getElementById("length").value, 10);
-      const isUnique = document.getElementById("unique-check").checked;
-
-      if (isNaN(length) || length < 1) {
-        alert("桁数は1以上にしてください！");
+      if (isUnique && count > rangeSize) {
+        alert(`範囲内（${min}〜${max}）の数値が足りません！個数を${rangeSize}以下にするか、範囲を広げてください。`);
         return;
       }
 
+      const numbers = [];
+      if (isUnique) {
+        // メモリ節約のためSetを使って重複なしで抽出
+        const picked = new Set();
+        while (picked.size < count) {
+          const num = Math.floor(Math.random() * rangeSize) + min;
+          picked.add(num);
+        }
+        numbers.push(...picked);
+      } else {
+        for (let i = 0; i < count; i++) {
+          const num = Math.floor(Math.random() * rangeSize) + min;
+          numbers.push(num);
+        }
+      }
+
+      // 複数個ある場合はスペース区切りかカンマ区切りで並べる
+      resultText = useSpace ? numbers.join(" ") : numbers.join(", ");
+
+    } else {
+      let code = "";
+
       if (type === "binary") {
-        if (length === 1) {
+        if (count === 1) {
           code = Math.floor(Math.random() * 2).toString();
         } else {
           while (true) {
             code = "";
-            for (let i = 0; i < length; i++) {
+            for (let i = 0; i < count; i++) {
               code += Math.floor(Math.random() * 2);
             }
             if (code.includes('0') && code.includes('1')) break;
@@ -270,7 +290,7 @@
         }
 
         if (isUnique) {
-          if (length > pool.length) {
+          if (count > pool.length) {
             alert(`候補の文字数（${pool.length}種類）を超えています！桁数を${pool.length}以下にしてください。`);
             return;
           }
@@ -278,21 +298,19 @@
             const j = Math.floor(Math.random() * (i + 1));
             [pool[i], pool[j]] = [pool[j], pool[i]];
           }
-          code = pool.slice(0, length).join("");
+          code = pool.slice(0, count).join("");
         } else {
-          for (let i = 0; i < length; i++) {
+          for (let i = 0; i < count; i++) {
             const idx = Math.floor(Math.random() * pool.length);
             code += pool[idx];
           }
         }
       }
+
+      resultText = useSpace ? code.split("").join(" ") : code;
     }
 
-    if (useSpace) {
-      code = code.split("").join(" ");
-    }
-
-    resultEl.textContent = code;
+    resultEl.textContent = resultText;
   }
 
   function resetForm() {
